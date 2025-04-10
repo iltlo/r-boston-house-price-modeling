@@ -1,0 +1,172 @@
+---
+title: "Boston Housing Data - Full Exploratory Visualization"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set Working Directory
+
+```{r}
+setwd("/Users/Ian/Documents/Code_Projects/boston-house-price-modeling/visualization")
+getwd()
+```
+
+## Load Libraries
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(patchwork)
+```
+
+## Load Data
+
+```{r}
+data <- read.csv("../data/boston_cleaned.csv")
+str(data)
+summary(data)
+```
+
+## Attribute Information
+
+``` md
+Input features in order:
+1) CRIM: per capita crime rate by town
+2) ZN: proportion of residential land zoned for lots over 25,000 sq.ft.
+3) INDUS: proportion of non-retail business acres per town
+4) CHAS: Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+5) NOX: nitric oxides concentration (parts per 10 million) [parts/10M]
+6) RM: average number of rooms per dwelling
+7) AGE: proportion of owner-occupied units built prior to 1940
+8) DIS: weighted distances to five Boston employment centres
+9) RAD: index of accessibility to radial highways
+10) TAX: full-value property-tax rate per $10,000 [$/10k]
+11) PTRATIO: pupil-teacher ratio by town
+12) LSTAT: % lower status of the population
+
+Output variable:
+1) MEDV: Median value of owner-occupied homes in $1000's [k$]
+```
+
+------------------------------------------------------------------------
+
+## Part 1: Distribution of All Predictive Variables
+
+```{r}
+predictor_vars <- names(data)[names(data) != "MEDV"]
+
+# Generate histograms for each predictor
+for (var in predictor_vars) {
+  print(
+    ggplot(data, aes_string(x = var)) +
+      geom_histogram(fill = "skyblue", color = "black", bins = 30) +
+      labs(title = paste("Histogram of", var), x = var, y = "Frequency")
+  )
+}
+```
+
+------------------------------------------------------------------------
+
+## Part 2: Relationship Between Predictors and MEDV
+
+```{r}
+# Special case for CHAS (categorical)
+ggplot(data, aes(x = factor(CHAS), y = MEDV)) +
+  geom_boxplot(fill = "orange") +
+  labs(title = "Boxplot of MEDV by CHAS (Charles River Dummy)",
+       x = "CHAS (0 = No, 1 = Yes)", y = "MEDV")
+```
+
+```{r}
+# Scatter plots for all other numeric predictors vs MEDV
+numeric_vars <- setdiff(predictor_vars, "CHAS")
+
+for (var in numeric_vars) {
+  print(
+    ggplot(data, aes_string(x = var, y = "MEDV")) +
+      geom_point(color = "steelblue") +
+      labs(title = paste(var, "vs MEDV"),
+           x = var, y = "Median Value (MEDV)")
+  )
+}
+```
+
+------------------------------------------------------------------------
+
+## Correlation Heatmap
+
+```{r}
+corr_matrix <- cor(data)
+corrplot(corr_matrix, method = "color", type = "upper", tl.cex = 0.8, number.cex = 0.7)
+```
+
+------------------------------------------------------------------------
+
+## Composite Plot
+
+### **Part 1: Composite Histogram Plot**
+
+```{r}
+# Create individual histograms
+hist_plots <- lapply(predictor_vars, function(var) {
+  ggplot(data, aes_string(x = var)) +
+    geom_histogram(fill = "skyblue", color = "black", bins = 30) +
+    #labs(title = paste("Histogram of", var), x = var, y = "") +
+    labs(x = var, y = "") +
+    theme_minimal(base_size = 10)
+})
+
+# Combine using patchwork
+combined_hist <- wrap_plots(hist_plots, ncol = 4) +
+  plot_annotation(title = "Visualization: Distribution of Predictors")
+
+combined_hist
+```
+
+------------------------------------------------------------------------
+
+### **Part 2: Composite Scatter/Box Plot (Predictors vs MEDV)**
+
+```{r}
+# Create scatter plots
+scatter_plots <- lapply(numeric_vars, function(var) {
+  ggplot(data, aes_string(x = var, y = "MEDV")) +
+    geom_point(color = "steelblue", alpha = 0.6) +
+    labs(title = paste(var, "vs MEDV"), x = var, y = "") +
+    theme_minimal(base_size = 10)
+})
+
+# Add CHAS boxplot
+chas_box <- ggplot(data, aes(x = factor(CHAS), y = MEDV)) +
+  geom_boxplot(fill = "orange", alpha = 0.8) +
+  labs(title = "CHAS vs MEDV", x = "CHAS (0 = No, 1 = Yes)", y = "") +
+  theme_minimal(base_size = 10)
+
+# Combine all
+combined_scatter <- wrap_plots(c(scatter_plots, list(chas_box)), ncol = 4) +
+  plot_annotation(title = "Visualization: Predictor Relationships with MEDV")
+
+combined_scatter
+```
+
+------------------------------------------------------------------------
+
+## Save a high-resolution image
+
+```{r}
+ggsave("../output/vis_histograms.png", combined_hist, width = 20, height = 12)
+ggsave("../output/vis_scatter.png", combined_scatter, width = 20, height = 12)
+```
+
+## Summary
+
+This report provides:
+
+-   Full visualization of all 12 predictors\
+-   Clear relationships between each variable and the target (MEDV)\
+-   A correlation map to detect multicollinearity

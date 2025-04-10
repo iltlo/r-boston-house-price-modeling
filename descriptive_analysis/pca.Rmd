@@ -1,0 +1,200 @@
+---
+title: "Principal Component Analysis (PCA) on Boston Housing Dataset"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Set Working Directory
+
+```{r}
+setwd("/Users/Ian/Documents/Code_Projects/boston-house-price-modeling/descriptive_analysis")
+getwd()
+```
+
+## 1. Load Libraries
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggrepel)   # for non-overlapping labels
+library(patchwork)
+```
+
+## 2. Load Dataset
+
+```{r}
+# Read the cleaned dataset (assumes 'B' column removed)
+data <- read.csv("../data/boston_cleaned.csv")
+str(data)
+```
+
+## 3. Basic Statistics and Correlation
+
+```{r}
+# Correlation matrix
+cor(data)
+```
+
+## 4. PCA Analysis
+
+```{r}
+# Run PCA with scaling
+pr.out <- prcomp(data, scale. = TRUE)
+```
+
+### 4.1 PCA Object Details
+
+```{r}
+# Structure of the PCA object
+str(pr.out)
+
+# Means and standard deviations
+pr.out$center
+pr.out$scale
+```
+
+### 4.2 Loadings (Eigenvectors)
+
+```{r}
+# Loadings of original variables on PCs
+pr.out$rotation
+```
+
+### 4.3 Principal Component Scores
+
+```{r}
+# Principal component scores (rows = observations, cols = PCs)
+head(pr.out$x)
+```
+
+## 5. Visualize PCA: Biplot
+
+```{r}
+# Basic biplot
+biplot(pr.out, scale = 0)
+```
+
+```{r}
+# Optional: Flip PC1 direction (no impact on interpretation)
+pr.out$rotation[,1] = -pr.out$rotation[,1]
+pr.out$x[,1] = -pr.out$x[,1]
+biplot(pr.out, scale = 0)
+```
+
+```{r}
+# Extract scores and loadings
+scores <- as.data.frame(pr.out$x[, 1:2])  # PC1 and PC2
+loadings <- as.data.frame(pr.out$rotation[, 1:2])
+loadings$varname <- rownames(loadings)
+
+# Scale loadings for visualization (arrows)
+loadings_scaled <- loadings
+loadings_scaled[, 1:2] <- loadings_scaled[, 1:2] * 10  # adjust scale for better arrow visibility
+
+# Create biplot
+p <- ggplot(scores, aes(x = PC1, y = PC2)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_segment(data = loadings_scaled,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")),
+               color = "darkred", linewidth = 0.8) +
+  geom_text_repel(data = loadings_scaled,
+                  aes(x = PC1, y = PC2, label = varname),
+                  color = "darkred", size = 4) +
+  labs(title = "PCA Biplot (PC1 vs PC2)",
+       x = paste0("PC1 (", round(summary(pr.out)$importance[2, 1] * 100, 1), "%)"),
+       y = paste0("PC2 (", round(summary(pr.out)$importance[2, 2] * 100, 1), "%)")) +
+  theme_minimal()
+
+# Show plot
+print(p)
+
+# Save to file
+ggsave(filename = "../output/pca/pca_biplot.png", plot = p, width = 8, height = 8, dpi = 300, bg="white")
+
+```
+
+## 6. Variance Explained
+
+```{r}
+# Summary of PCA: includes proportion of variance explained
+pca_summary <- summary(pr.out)
+pca_summary
+```
+
+## 7. Scree Plot & Cumulative Variance
+
+### a. Plot
+
+```{r}
+# Extract importance matrix
+importance <- pca_summary$importance
+
+# Scree plot and cumulative variance
+par(mfrow = c(1, 2))
+plot(importance[2,], xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained", ylim = c(0, 1),
+     type = "b", col = "blue", pch = 19)
+
+plot(importance[3,], xlab = "Principal Component",
+     ylab = "Cumulative Proportion of Variance Explained",
+     ylim = c(0, 1), type = "b", col = "darkgreen", pch = 19)
+par(mfrow = c(1, 1))
+```
+
+------------------------------------------------------------------------
+
+### b. ggplot2 Version
+
+```{r}
+# Extract variance explained from PCA summary
+pca_summary <- summary(pr.out)
+importance <- pca_summary$importance
+
+# Create a data frame for plotting
+pc_data <- data.frame(
+  PC = paste0("PC", 1:ncol(pr.out$rotation)),
+  Variance = importance[2, ],
+  Cumulative = importance[3, ],
+  PC_num = 1:ncol(pr.out$rotation)
+)
+
+# Scree Plot
+scree_plot <- ggplot(pc_data, aes(x = PC_num, y = Variance)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "steelblue", size = 2) +
+  scale_x_continuous(breaks = pc_data$PC_num) +
+  labs(title = "Scree Plot",
+       x = "Principal Component",
+       y = "Proportion Variance Explained") +
+  theme_minimal()
+
+# Cumulative Variance Plot
+cum_plot <- ggplot(pc_data, aes(x = PC_num, y = Cumulative)) +
+  geom_line(color = "darkgreen", size = 1) +
+  geom_point(color = "darkgreen", size = 2) +
+  scale_x_continuous(breaks = pc_data$PC_num) +
+  labs(x = "Principal Component",
+       y = "Cumulative Prop. Variance Explained") +
+  theme_minimal()
+
+# Combine two plots side-by-side using patchwork
+combined_plot <- scree_plot + cum_plot
+
+print(combined_plot)
+
+# Save the combined plot to file
+ggsave("../output/pca/pca_scree_and_cumulative_pve.png",
+       plot = combined_plot, width = 12, height = 6, dpi = 300)
+```
+
+## 8. Interpretation
+
+-   The **loadings** (`rotation`) show how each original variable contributes to the PCs.
+-   The **principal component scores** (`x`) are new features that can be used for clustering.
+-   From the **variance explained**, you can decide how many components to retain (e.g., enough to capture 90% of the variance).
+-   The **biplot** helps visualize the relationship between variables and observations in the reduced PC space.

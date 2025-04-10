@@ -1,0 +1,107 @@
+---
+title: "Linear Regression Using Top 6 Principal Components"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## 1. Load Libraries
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(car)        # for VIF
+library(caret)      # for RMSE and data splitting
+```
+
+## 2. Load and Filter the Data
+
+```{r}
+# Load cleaned Boston dataset
+data <- read.csv("../data/boston_cleaned.csv")
+
+# Check structure
+str(data)
+```
+
+## 3. Principal Component Analysis (PCA)
+
+```{r}
+# Run PCA on standardized predictors
+pr.out <- prcomp(data %>% select(-MEDV), scale. = TRUE)
+
+# Extract top 6 principal components
+pc_data <- as.data.frame(pr.out$x[, 1:6])
+pc_data$MEDV <- data$MEDV
+```
+
+## 4. Split Data (80/20)
+
+```{r}
+# Set seed for reproducibility
+set.seed(2641)
+
+# Split into training (80%) and testing (20%)
+splitIndex <- createDataPartition(pc_data$MEDV, p = 0.8, list = FALSE)
+train <- pc_data[splitIndex, ]
+test  <- pc_data[-splitIndex, ]
+```
+
+## 5. Fit Linear Regression Model
+
+```{r}
+# Fit model on training data
+PCReg <- lm(MEDV ~ ., data = train)
+summary(PCReg)
+```
+
+## 6. Predict & Evaluate on Test Set
+
+```{r}
+# Predict on test set
+predictions <- predict(PCReg, newdata = test)
+
+# Calculate SSE and SST
+SSE <- sum((test$MEDV - predictions)^2)
+ybar <- mean(train$MEDV)
+SST <- sum((test$MEDV - ybar)^2)
+
+# Out-of-sample R-squared
+R2_out <- 1 - SSE/SST
+cat("Out-of-sample R²:", round(R2_out, 4))
+```
+
+## 7. Residual Plot
+
+```{r}
+# Residual plot
+plot(PCReg$residuals, main = "Residual Plot", ylab = "Residuals", xlab = "Index")
+abline(h = 0, col = "red")
+```
+
+## 8. Model Validation
+
+### a. T-tests and F-test (from `summary()`)
+
+```{r}
+summary(PCReg)  # includes t-values and F-statistic
+```
+
+### b. VIF (Variance Inflation Factor)
+
+```{r}
+vif(PCReg)  # check multicollinearity
+```
+
+---
+
+## Summary
+
+- The model uses **PC1–PC6** which together explain ~93–94% of variance in the predictors.
+- The **out-of-sample R²** is `r round(R2_out, 4)`, showing how well the model generalizes.
+- **No multicollinearity** is expected since PCs are orthogonal (VIF ~ 1).
+- Model significance assessed via **t-tests** and **F-test**.

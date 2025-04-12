@@ -1,0 +1,91 @@
+setwd("C:\\Users\\helin\\Desktop\\IIMT2641\\boston-house-price-modeling\\data\\")
+install.packages("tidyverse")
+install.packages("factoextra")
+library(tidyverse)
+library(factoextra)
+
+# ----------------------
+# Step 2: Load and preprocess data
+# ----------------------
+boston <- read.csv("boston_cleaned.csv")
+str(boston)
+
+# Standardize data (exclude MEDV)
+scaled_data <- scale(boston %>% select(-MEDV))
+
+# ----------------------
+# Step 3: Determine optimal number of clusters (k)
+# ----------------------
+# Method: Elbow Method
+set.seed(123)
+wss <- sapply(1:10, function(k) {
+  kmeans(scaled_data, k, nstart = 25)$tot.withinss
+})
+plot(1:10, wss, type = "b", 
+     xlab = "Number of clusters (k)", ylab = "Within-cluster sum of squares (WSS)",
+     main = "Elbow Method")
+
+# ----------------------
+# Step 4: Perform K-means clustering (k=2)
+# ----------------------
+set.seed(123)
+k <- 2  # Selected based on elbow method
+km_result <- kmeans(scaled_data, centers = k, nstart = 25)
+boston$cluster <- km_result$cluster
+
+# ----------------------
+# Step 5: Visualization and interpretation
+# ----------------------
+# PCA Visualization (with parameter adjustment to avoid re-scaling)
+pca_result <- prcomp(scaled_data, center = FALSE, scale = FALSE)
+
+# Create PCA dataframe
+pca_df <- data.frame(
+  PC1 = pca_result$x[, 1],
+  PC2 = pca_result$x[, 2],
+  Cluster = as.factor(boston$cluster)
+)
+
+# Calculate explained variance
+var_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+pc1_var <- round(var_explained[1] * 100, 1)
+pc2_var <- round(var_explained[2] * 100, 1)
+
+# Customized PCA plot
+# Create customized PCA plot (without ellipse)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Cluster)) +
+  geom_point(alpha = 0.7, size = 3) +  # Keep points
+  scale_color_manual(values = c("#E69F00", "#56B4E9")) +  # Keep colors
+  labs(
+    x = paste0("PC1 (", pc1_var, "% Variance)"),
+    y = paste0("PC2 (", pc2_var, "% Variance)"),
+    title = "PCA of Housing Price Clusters",
+    subtitle = "K-means clustering with k=2",
+    color = "Cluster Group"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    axis.title = element_text(size = 12),
+    legend.title = element_text(face = "bold"),
+    legend.position = "bottom"
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 4)))
+
+# View median house prices by cluster
+cat("Median house prices by cluster:\n")
+aggregate(MEDV ~ cluster, data = boston, median)  # Now using median
+
+# Boxplot visualization
+ggplot(boston, aes(x = factor(cluster), y = MEDV, fill = factor(cluster))) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Pastel1") +
+  labs(x = "Cluster", y = "Median House Price (MEDV)", 
+       title = "House Price Distribution by Cluster") +
+  theme_minimal()
+
+# Cluster characteristic analysis
+cluster_summary <- boston %>%
+  group_by(cluster) %>%
+  summarise(across(everything(), mean))

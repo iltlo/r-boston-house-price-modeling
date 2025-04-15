@@ -1,0 +1,91 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+# Load libraries
+```{r}
+library(caret)
+library(dplyr)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(ROCR)
+library(randomForest)
+```
+# Read in the data
+```{r}
+data <- read.csv("boston_cleaned.csv")
+str(data)
+```
+# Run PCA on standardized predictors
+```{r}
+pr.out <- prcomp(data %>% select(-MEDV), scale. = TRUE)
+pc_data <- as.data.frame(pr.out$x[, 1:6])
+pc_data$MEDV <- data$MEDV
+```
+```{r}
+# Split the data
+set.seed(2641)
+spl <- sample.split(pc_data$MEDV, SplitRatio = 0.8)
+Train <- subset(pc_data, spl == TRUE)
+Test <- subset(pc_data, spl == FALSE)
+nrow(Train)
+nrow(Test)
+```
+# Build CART model
+```{r}
+BostonTree <- rpart(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, method = "anova", minbucket = 26)
+prp(BostonTree)
+
+# Make predictions
+PredictCART <- predict(BostonTree, newdata = Test, type = "vector")
+
+# Calculate R2
+SSE <- sum((Test$MEDV - PredictCART)^2)
+SST <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared <- 1 - (SSE / SST)
+R_squared
+```
+```{r}
+# Explore different thresholds
+#PredictCARTp <- predict(BostonTree, type = "vector")[, 6]
+```
+# Build RF model
+```{r}
+BostonForest <- randomForest(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, ntree = 200, nodesize = 25)
+
+# Make predictions with RF
+PredictForest <- predict(BostonForest, newdata = Test)
+
+# Calculate SSE, SST, and R²
+SSE <- sum((Test$MEDV - PredictForest)^2)
+SST <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared <- 1 - (SSE / SST)
+R_squared
+```
+#cross-validation
+```{r}
+# Define cross-validation experiment
+numFolds <- trainControl(method = "cv", number = 10)
+cpGrid <- expand.grid(.cp = seq(0.01, 0.5, 0.01))
+
+# Perform cross-validation
+set.seed(123)
+train(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, method = "rpart", trControl = numFolds, tuneGrid = cpGrid)
+
+# Create a new CART model based on cross-validation
+BostonTreeCV <- rpart(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, method = "class", cp = 0.19)
+
+# Make predictions and evaluate
+PredictCV <- predict(BostonTreeCV, newdata = Test, type = "vector")
+
+# Calculate SSE, SST, and R²
+SSE <- sum((Test$MEDV - PredictCV)^2)
+SST <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared <- 1 - (SSE / SST)
+R_squared
+```

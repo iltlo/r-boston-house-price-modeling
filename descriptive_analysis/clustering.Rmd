@@ -1,66 +1,59 @@
+install.packages("tinytex")
+tinytex::install_tinytex()
+```{r setup, include=FALSE}
+# Set working directory
 setwd("C:\\Users\\helin\\Desktop\\IIMT2641\\boston-house-price-modeling\\data\\")
+# Install required packages
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
 install.packages("tidyverse")
 install.packages("factoextra")
+# Load the libraries
 library(tidyverse)
 library(factoextra)
-
-# ----------------------
-# Step 2: Load and preprocess data
-# ----------------------
+# Load the Boston dataset and check its structure
 boston <- read.csv("boston_cleaned.csv")
 str(boston)
-
-# Standardize data (exclude MEDV)
+# Standardize the data (exclude MEDV)
 scaled_data <- scale(boston %>% select(-MEDV))
-
-# ----------------------
-# Step 3: Determine optimal number of clusters (k)
-# ----------------------
-# Method: Elbow Method
+# Apply the Elbow Method to determine the optimal number of clusters
 set.seed(123)
 wss <- sapply(1:10, function(k) {
   kmeans(scaled_data, k, nstart = 25)$tot.withinss
 })
+# Plot the Elbow Method graph
 plot(1:10, wss, type = "b", 
      xlab = "Number of clusters (k)", ylab = "Within-cluster sum of squares (WSS)",
      main = "Elbow Method")
-
-# ----------------------
-# Step 4: Perform K-means clustering (k=2)
-# ----------------------
+# Perform K-means clustering with k=3
 set.seed(123)
-k <- 2  # Selected based on elbow method
+k <- 3  
 km_result <- kmeans(scaled_data, centers = k, nstart = 25)
+# Add cluster results to the dataset
 boston$cluster <- km_result$cluster
-
-# ----------------------
-# Step 5: Visualization and interpretation
-# ----------------------
-# PCA Visualization (with parameter adjustment to avoid re-scaling)
+# Perform PCA without centering and scaling
 pca_result <- prcomp(scaled_data, center = FALSE, scale = FALSE)
 
-# Create PCA dataframe
+# Prepare the data for PCA plot
 pca_df <- data.frame(
   PC1 = pca_result$x[, 1],
   PC2 = pca_result$x[, 2],
   Cluster = as.factor(boston$cluster)
 )
 
-# Calculate explained variance
+# Calculate explained variance for each principal component
 var_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
 pc1_var <- round(var_explained[1] * 100, 1)
 pc2_var <- round(var_explained[2] * 100, 1)
 
 # Customized PCA plot
-# Create customized PCA plot (without ellipse)
 ggplot(pca_df, aes(x = PC1, y = PC2, color = Cluster)) +
-  geom_point(alpha = 0.7, size = 3) +  # Keep points
-  scale_color_manual(values = c("#E69F00", "#56B4E9")) +  # Keep colors
+  geom_point(alpha = 0.7, size = 3) +
+  scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
   labs(
     x = paste0("PC1 (", pc1_var, "% Variance)"),
     y = paste0("PC2 (", pc2_var, "% Variance)"),
     title = "PCA of Housing Price Clusters",
-    subtitle = "K-means clustering with k=2",
+    subtitle = "K-means clustering with k=3",  
     color = "Cluster Group"
   ) +
   theme_minimal() +
@@ -72,20 +65,23 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = Cluster)) +
     legend.position = "bottom"
   ) +
   guides(color = guide_legend(override.aes = list(size = 4)))
-
-# View median house prices by cluster
+# View the median house prices by cluster
 cat("Median house prices by cluster:\n")
 aggregate(MEDV ~ cluster, data = boston, median)  # Now using median
-
-# Boxplot visualization
+# Create a boxplot to show the distribution of house prices by cluster
 ggplot(boston, aes(x = factor(cluster), y = MEDV, fill = factor(cluster))) +
   geom_boxplot() +
-  scale_fill_brewer(palette = "Pastel1") +
-  labs(x = "Cluster", y = "Median House Price (MEDV)", 
-       title = "House Price Distribution by Cluster") +
+  scale_fill_brewer(palette = "Pastel1", name = "Cluster") +
+  labs(
+    x = "Cluster", 
+    y = "Median House Price (MEDV)", 
+    title = "House Price Distribution by Cluster (k=3)"
+  ) +
   theme_minimal()
-
-# Cluster characteristic analysis
+# Summarize the characteristics of each cluster
 cluster_summary <- boston %>%
   group_by(cluster) %>%
   summarise(across(everything(), mean))
+
+# Display the summary result
+print(cluster_summary)

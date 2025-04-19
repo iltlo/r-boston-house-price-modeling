@@ -42,8 +42,8 @@ cor(data)
 ## 4. PCA Analysis
 
 ```{r}
-# Run PCA with scaling
-pr.out <- prcomp(data, scale. = TRUE)
+# Run PCA on predictors only (exclude MEDV)
+pr.out <- prcomp(data %>% select(-MEDV), scale. = TRUE)
 ```
 
 ### 4.1 PCA Object Details

@@ -20,10 +20,19 @@ set.seed(123)
 wss <- sapply(1:10, function(k) {
   kmeans(scaled_data, k, nstart = 25)$tot.withinss
 })
-# Plot the Elbow Method graph
+
 plot(1:10, wss, type = "b", 
-     xlab = "Number of clusters (k)", ylab = "Within-cluster sum of squares (WSS)",
-     main = "Elbow Method")
+     xlab = "Number of clusters (k)", 
+     ylab = "Within-cluster sum of squares (WSS)",
+     main = "Elbow Method",
+     xaxt = "n")  
+axis(
+  side = 1,          
+  at = c(1,3,5,7,9), 
+  labels = c(1,3,5,7,9) 
+)
+
+abline(v = 3, col = "red", lty = 4)
 # Perform K-means clustering with k=3
 set.seed(123)
 k <- 3  

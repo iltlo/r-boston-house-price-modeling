@@ -69,15 +69,20 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = Cluster)) +
 cat("Median house prices by cluster:\n")
 aggregate(MEDV ~ cluster, data = boston, median)  # Now using median
 # Create a boxplot to show the distribution of house prices by cluster
+
 ggplot(boston, aes(x = factor(cluster), y = MEDV, fill = factor(cluster))) +
   geom_boxplot() +
-  scale_fill_brewer(palette = "Pastel1", name = "Cluster") +
+  scale_fill_manual(
+    values = c("#E69F00", "#56B4E9", "#009E73"),
+    name = "Cluster"  
+  ) +
   labs(
     x = "Cluster", 
     y = "Median House Price (MEDV)", 
-    title = "House Price Distribution by Cluster (k=3)"
+    title = "House Price Distribution by Cluster (k=3)" 
   ) +
   theme_minimal()
+
 # Summarize the characteristics of each cluster
 cluster_summary <- boston %>%
   group_by(cluster) %>%

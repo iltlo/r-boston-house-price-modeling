@@ -15,6 +15,7 @@ boston <- read.csv("boston_cleaned.csv")
 str(boston)
 # Standardize the data (exclude MEDV)
 scaled_data <- scale(boston %>% select(-MEDV))
+
 # Apply the Elbow Method to determine the optimal number of clusters
 set.seed(123)
 wss <- sapply(1:10, function(k) {
@@ -33,13 +34,16 @@ axis(
 )
 
 abline(v = 3, col = "red", lty = 4)
+
 # Perform K-means clustering with k=3
 set.seed(123)
 k <- 3  
 km_result <- kmeans(scaled_data, centers = k, nstart = 25)
+
 # Add cluster results to the dataset
 boston$cluster <- km_result$cluster
-# Perform PCA without centering and scaling
+
+# Perform PCA 
 pca_result <- prcomp(scaled_data, center = FALSE, scale = FALSE)
 pca_result$rotation[, 1] <- -pca_result$rotation[, 1]
 pca_result$x[, 1] <- -pca_result$x[, 1]

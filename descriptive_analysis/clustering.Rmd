@@ -41,6 +41,8 @@ km_result <- kmeans(scaled_data, centers = k, nstart = 25)
 boston$cluster <- km_result$cluster
 # Perform PCA without centering and scaling
 pca_result <- prcomp(scaled_data, center = FALSE, scale = FALSE)
+pca_result$rotation[, 1] <- -pca_result$rotation[, 1]
+pca_result$x[, 1] <- -pca_result$x[, 1]
 
 # Prepare the data for PCA plot
 pca_df <- data.frame(

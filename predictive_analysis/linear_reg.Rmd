@@ -35,7 +35,7 @@ str(data)
 pr.out <- prcomp(data %>% select(-MEDV), scale. = TRUE)
 
 # Extract top 6 principal components
-pc_data <- as.data.frame(pr.out$x[, 1:6])
+pc_data <- as.data.frame(pr.out$x[, 1:5])
 pc_data$MEDV <- data$MEDV
 ```
 
@@ -97,11 +97,11 @@ summary(PCReg)  # includes t-values and F-statistic
 vif(PCReg)  # check multicollinearity
 ```
 
----
+------------------------------------------------------------------------
 
 ## Summary
 
-- The model uses **PC1–PC6** which together explain ~93–94% of variance in the predictors.
-- The **out-of-sample R²** is `r round(R2_out, 4)`, showing how well the model generalizes.
-- **No multicollinearity** is expected since PCs are orthogonal (VIF ~ 1).
-- Model significance assessed via **t-tests** and **F-test**.
+-   The model uses **PC1–PC5** which together explain \~85% of variance in the predictors.
+-   The **out-of-sample R²** is `r round(R2_out, 4)`, showing how well the model generalizes.
+-   **No multicollinearity** is expected since PCs are orthogonal (VIF \~ 1).
+-   Model significance assessed via **t-tests** and **F-test**.

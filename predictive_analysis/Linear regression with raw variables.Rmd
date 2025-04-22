@@ -1,0 +1,57 @@
+---
+title: "Linear regression with raw variables"
+output: pdf_document
+date: "2025-04-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+setwd("/Users/jb/Desktop")
+library(car) 
+
+data = read.csv("boston_cleaned.csv") 
+set.seed(2641)
+train_index <- sample(1:nrow(data), 0.8 * nrow(data))
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+model <- lm(MEDV ~ ., data = train_data)
+summary(model)
+vif(model)
+
+model2 <- lm(MEDV ~ CRIM + ZN + CHAS + NOX + RM + DIS + PTRATIO + LSTAT, data = train_data)
+summary(model2)
+vif(model2)
+
+model3 <- lm(MEDV ~ ZN + CHAS + NOX + RM + DIS + PTRATIO + LSTAT, data = train_data)
+summary(model3)
+vif(model3)
+
+test_pred <- predict(model3, newdata = test_data)
+test_r2 <- 1 - (sum((test_data$MEDV - test_pred)^2) / sum((test_data$MEDV - mean(train_data$MEDV))^2))
+test_mae <- mean(abs(test_data$MEDV - test_pred))
+test_rmse <- sqrt(mean((test_data$MEDV - test_pred)^2))
+cat("Test R-squared:", test_r2, "\n")
+cat("Test MAE:", test_mae, "\n")
+cat("Test RMSE:", test_rmse, "\n")

@@ -1,0 +1,117 @@
+---
+title: "BostonCART"
+output: pdf_document
+date: "2025-04-29"
+---
+1. Setup
+```{r setup, message=FALSE, warning=FALSE}
+
+# Load libraries
+library(caret)
+library(dplyr)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(ROCR)
+library(randomForest)
+library(ggplot2)
+
+# Read in the data
+data <- read.csv("boston_cleaned.csv")
+```
+2.Beforehand PCA
+```{r, message=FALSE}
+# Run PCA on standardized predictors
+pr.out <- prcomp(data %>% select(-MEDV), scale. = TRUE)
+pc_data <- as.data.frame(pr.out$x[, 1:6])
+pc_data$MEDV <- data$MEDV
+
+# Split the data
+set.seed(2641)
+spl <- sample.split(pc_data$MEDV, SplitRatio = 0.8)
+Train <- subset(pc_data, spl == TRUE)
+Test <- subset(pc_data, spl == FALSE)
+```
+3.CART
+```{r,message=FALSE}
+# Build initial CART model
+BostonTree <- rpart(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, 
+                    method = "anova", minbucket = 5)
+rpart.plot(BostonTree)
+# Make predictions
+PredictCART <- predict(BostonTree, newdata = Test)
+
+# Calculate R² for CART model
+SSE <- sum((Test$MEDV - PredictCART)^2)
+SST <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared_CART <- 1 - (SSE / SST)
+cat("R-squared for CART model:", R_squared_CART, "\n")
+
+#Plotting Actual vs Prediction Value
+results <- data.frame(Actual = Test$MEDV, Predicted = PredictCART)
+ggplot(results, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Actual vs Predicted Values using CART Model",
+       x = "Actual MEDV",
+       y = "CART Predicted MEDV") +
+  theme_minimal()
+```
+4.CROSS-VALIDATION
+```{r,message=FALSE}
+# Cross-validation for the single tree
+numFolds <- trainControl(method = "cv", number = 10)
+cpGrid <- expand.grid(.cp = seq(0, 0.01, 0.0001))
+set.seed(2641)
+cv_results <- train(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, method = "rpart", 
+                    trControl = numFolds, tuneGrid = cpGrid)
+#Best cv results = 5e-4
+
+# Create a new single CART model based on cross-validation
+BostonTreeCV <- rpart(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, 
+                      method ="anova", minbucket = 5, cp=0.0005)
+rpart.plot(BostonTreeCV)
+# Make predictions
+PredictCV <- predict(BostonTreeCV, newdata = Test, type = "vector")
+
+# Calculate SSE, SST, and R² for CART model with cross-validation
+SSE_CV <- sum((Test$MEDV - PredictCV)^2)
+SST_CV <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared_CV <- 1 - (SSE_CV / SST_CV)
+cat("R-squared for CART model with CV:", R_squared_CV, "\n")
+
+#Plotting Actual vs Prediction Value
+resultscv <- data.frame(Actual = Test$MEDV, Predicted = PredictCV)
+ggplot(resultscv, aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Actual vs Predicted Values using cross-validated Model",
+       x = "Actual MEDV",
+       y = "CART Predicted MEDV") +
+  theme_minimal()
+```
+5. Random Forest
+```{r,message=FALSE}
+# Build RF model
+BostonForest <- randomForest(MEDV ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = Train, 
+                             ntree = 300, nodesize = 5)
+
+# Make predictions with RF
+PredictForest <- predict(BostonForest, newdata = Test)
+
+# Calculate SSE, SST, and R² for RF model
+SSE_RF <- sum((Test$MEDV - PredictForest)^2)
+SST_RF <- sum((Test$MEDV - mean(Test$MEDV))^2)
+R_squared_RF <- 1 - (SSE_RF / SST_RF)
+cat("R-squared for Random Forest model:", R_squared_RF, "\n")
+
+# Create the plot for actual vs. predicted values
+results_RF <- data.frame(Actual = Test$MEDV, Predicted = PredictForest)
+ggplot(results_RF, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "blue") +  # Points for actual vs predicted
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +  # Ideal line
+  labs(title = "Actual vs Predicted Values using Random Forest Model",
+       x = "Actual MEDV",
+       y = "Random Forest Predicted MEDV") +
+  theme_minimal()
+```
